@@ -1,0 +1,15 @@
+.{
+    .name = .Arctonium,
+    .version = "0.0.1",
+    .fingerprint = 0xdae8cfd8b6b6dfe, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+    },
+}
