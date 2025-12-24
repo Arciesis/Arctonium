@@ -46,9 +46,10 @@ pub fn build(b: *std.Build) void {
         exe.linkLibrary(zglfw.artifact("glfw"));
     }
 
-    // zOpenGL
-    const zopengl = b.dependency("zopengl", .{});
-    exe.root_module.addImport("zopengl", zopengl.module("root"));
+    // zBgfx
+    const zbgfx = b.dependency("zbgfx", .{});
+    exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
+    exe.linkLibrary(zbgfx.artifact("bgfx"));
 
     // zTracy
     const ztracy = b.dependency("ztracy", .{
