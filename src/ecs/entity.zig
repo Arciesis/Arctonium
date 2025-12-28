@@ -31,10 +31,10 @@ const TOTAL_INDEXING_BITS = u64;
 pub const Entity = packed struct {
     id: TOTAL_INDEXING_BITS,
 
-    pub inline fn fetchIndex(_: Entity, id: TOTAL_INDEXING_BITS) LOWER_INDEXING_BITS {
-        const actual: u32 = @intCast(id & 0xFFFF_FFFF);
-        return actual;
-    }
+    // pub inline fn fetchIndex(_: Entity, id: TOTAL_INDEXING_BITS) LOWER_INDEXING_BITS {
+    //     const actual: u32 = @intCast(id & 0xFFFF_FFFF);
+    //     return actual;
+    // }
 };
 
 pub const EntityManager = struct {
@@ -55,6 +55,6 @@ test "first draft entity system" {
     const one = em.new();
     const two = em.new();
 
-    try std.testing.expectEqual(one.fetchIndex(one.id), one.id);
-    try std.testing.expectEqual(two.fetchIndex(two.id), two.id);
+    try std.testing.expectEqual(one.id & 0xFFFF_FFFF, one.id);
+    try std.testing.expectEqual(two.id & 0xFFFF_FFFF, two.id);
 }

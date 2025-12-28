@@ -3,21 +3,18 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 const Alignment = std.mem.Alignment;
 
-/// Representation of a sparse set for a u64.
-const MAX_U32 = 4_294_967_295;
+pub const SparseOptions = struct {
+    is_bit_masked: bool,
+};
 
-pub fn SparseSet(comptime T: type) type {
+pub fn SparseSet(comptime T: type, comptime opt: ?SparseOptions) type {
     comptime {
-        if (u64 != @FieldType(T, "id")) {
-            @compileError("Anything passed to the SparseSet inside of the ECS " ++
-                "module must have an `id` field!\n");
-        }
-
-        if (!@hasDecl(T, "fetchIndex")) {
-            @compileError("And A fetchIndex function that translate the " ++
-                "desired indexing\n");
+        if (!@hasField(T, "id")) {
+            @compileError("To use SparseSet the container T must ave an id field\n");
         }
     }
+
+    const masked = if (opt) |o| o.is_bit_masked else false;
 
     return struct {
         const Self = @This();
@@ -29,6 +26,15 @@ pub fn SparseSet(comptime T: type) type {
         // Represent the indices in which the entities are stored in the dense
         // array.
         sparse: []@FieldType(T, "id") = undefined,
+
+        inline fn fetchBitMaskedIndex(id: @FieldType(T, "id")) @FieldType(T, "id") {
+            if (masked) {
+                const actual_id: @TypeOf(id) = @intCast(id & 0xFFFF_FFFF);
+                return actual_id;
+            } else {
+                return id;
+            }
+        }
 
         pub fn init(allocator: Allocator) !Self {
             const dense_arr = try allocator.alloc(T, 1024);
@@ -54,18 +60,18 @@ pub fn SparseSet(comptime T: type) type {
 
         // TODO: rework.
         pub fn contains(self: *Self, item: T) bool {
-            const id: u32 = item.fetchIndex(item.id);
+            const id = fetchBitMaskedIndex(item.id);
 
             if (id >= self.sparse.len) {
                 return false;
             }
 
             const idx = self.sparse[id];
-            return (idx < self.count and self.dense[idx].fetchIndex(self.dense[idx].id) == id);
+            return (idx < self.count and fetchBitMaskedIndex(self.dense[idx].id) == id);
         }
 
         pub fn insert(self: *Self, item: T) void {
-            const id = item.fetchIndex(item.id);
+            const id = fetchBitMaskedIndex(item.id);
             if (self.contains(item)) {
                 return;
             }
@@ -76,24 +82,21 @@ pub fn SparseSet(comptime T: type) type {
         }
 
         pub fn remove(self: *Self, item: T) void {
-            std.debug.print("{d}\n", .{item.fetchIndex(item.id)});
-
             if (self.count == 0) {
                 return;
             }
 
             if (!self.contains(item)) {
-                std.debug.print("here", .{});
                 return;
             }
 
-            const id_to_remove = item.fetchIndex(item.id);
+            const id_to_remove = fetchBitMaskedIndex(item.id);
 
             const last_sparse = self.sparse[id_to_remove];
             const last_dense = self.dense[self.count - 1];
 
             self.dense[last_sparse] = last_dense;
-            self.sparse[last_dense.fetchIndex(last_dense.id)] = last_sparse;
+            self.sparse[fetchBitMaskedIndex(last_dense.id)] = last_sparse;
 
             self.count -= 1;
         }
@@ -102,7 +105,9 @@ pub fn SparseSet(comptime T: type) type {
 
 test "basic insert" {
     const entity = @import("../entity.zig");
-    const EntitySparseSet = SparseSet(entity.Entity);
+
+    const s_opt: SparseOptions = .{ .is_bit_masked = true };
+    const EntitySparseSet = SparseSet(entity.Entity, s_opt);
 
     const alloc = std.testing.allocator;
 
@@ -125,7 +130,9 @@ test "basic insert" {
 
 test "basic contains" {
     const entity = @import("../entity.zig");
-    const EntitySparseSet = SparseSet(entity.Entity);
+
+    const s_opt: SparseOptions = .{ .is_bit_masked = true };
+    const EntitySparseSet = SparseSet(entity.Entity, s_opt);
 
     const alloc = std.testing.allocator;
 
@@ -171,7 +178,9 @@ test "basic contains" {
 
 test "basic removal" {
     const entity = @import("../entity.zig");
-    const EntitySparseSet = SparseSet(entity.Entity);
+
+    const s_opt: SparseOptions = .{ .is_bit_masked = true };
+    const EntitySparseSet = SparseSet(entity.Entity, s_opt);
 
     const alloc = std.testing.allocator;
 
