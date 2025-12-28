@@ -51,6 +51,10 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
     exe.linkLibrary(zbgfx.artifact("bgfx"));
 
+    // Zmath
+    const zmath = b.dependency("zmath", .{});
+    exe.root_module.addImport("zmath", zmath.module("root"));
+
     // zTracy
     const ztracy = b.dependency("ztracy", .{
         .enable_ztracy = options.enable_ztracy,

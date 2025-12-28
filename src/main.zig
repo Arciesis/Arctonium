@@ -69,14 +69,14 @@ pub fn main() !void {
     //
     // Default state
     //
-    const state = 0 | bgfx.StateFlags_WriteRgb | bgfx.StateFlags_WriteA | bgfx.StateFlags_WriteZ | bgfx.StateFlags_DepthTestLess | bgfx.StateFlags_CullCcw | bgfx.StateFlags_Msaa;
+    // const state = 0 | bgfx.StateFlags_WriteRgb | bgfx.StateFlags_WriteA | bgfx.StateFlags_WriteZ | bgfx.StateFlags_DepthTestLess | bgfx.StateFlags_CullCcw | bgfx.StateFlags_Msaa;
     while (!window.shouldClose()) {
         // const tracy_zone = ztracy.ZoneN(@src(), "compute magic");
         // defer tracy_zone.End();
         zglfw.pollEvents();
 
 
-        bgfx.setState(state, 0);
+        // bgfx.setState(state, 0);
         // render your things here
         bgfx.touch(0);
         _ = bgfx.frame(false);
