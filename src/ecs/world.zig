@@ -1,32 +1,24 @@
 const std = @import("std");
-const Entity = @import("entity.zig");
+const entity = @import("entity.zig");
+const sparse_set = @import("datastructure/sparse_set.zig");
+const Options = sparse_set.SparseOptions;
+const EntitySparseSet = sparse_set.SparseSet(entity.Entity, Options{.is_bit_masked = true});
 
 const WorldIdType = u32;
 
-const World = struct {
-    id: WorldIdType,
-    entities_table: ?[]Entity = null,
+pub const World = struct {
+    allocator: std.mem.Allocator,
+    registry: EntitySparseSet,
 
-
-};
-
-pub const WorldManager = struct {
-    next_id: std.atomic.Value(WorldIdType) = std.atomic.Value(WorldIdType).init(1),
-    pub fn createWorld(self: *WorldManager) World {
-        const id = self.next_id.fetchAdd(1, .seq_cst);
-
-        return World{
-            .id = id,
-            .entities_table = null,
+    pub fn init(allocator: std.mem.Allocator) !World {
+        return World {
+            .allocator = allocator,
+            .registry = try EntitySparseSet.init(allocator),
         };
     }
+
+    pub fn deinit(self: *World) void {
+        self.registry.deinit();
+    }
+
 };
-
-test "first draft world system" {
-    var wm = WorldManager{};
-    const one = wm.createWorld();
-    const two = wm.createWorld();
-
-    try std.testing.expectEqual(1, one.id);
-    try std.testing.expectEqual(2, two.id);
-}
