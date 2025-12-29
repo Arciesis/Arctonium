@@ -1,12 +1,10 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
-const Alignment = std.mem.Alignment;
 
 pub const SparseOptions = struct {
     is_bit_masked: bool,
 };
-
 pub fn SparseSet(comptime T: type, comptime opt: ?SparseOptions) type {
     comptime {
         if (!@hasField(T, "id")) {
@@ -37,9 +35,9 @@ pub fn SparseSet(comptime T: type, comptime opt: ?SparseOptions) type {
         }
 
         pub fn init(allocator: Allocator) !Self {
-            const dense_arr = try allocator.alloc(T, 1024);
+            const dense_arr = try allocator.alloc(T, 4096);
             errdefer allocator.free(dense_arr);
-            const sparse_arr = try allocator.alloc(@FieldType(T, "id"), 4096);
+            const sparse_arr = try allocator.alloc(@FieldType(T, "id"), 16384);
             errdefer allocator.free(sparse_arr);
             return Self{
                 .allocator = allocator,
@@ -70,11 +68,16 @@ pub fn SparseSet(comptime T: type, comptime opt: ?SparseOptions) type {
             return (idx < self.count and fetchBitMaskedIndex(self.dense[idx].id) == id);
         }
 
-        pub fn insert(self: *Self, item: T) void {
+        pub fn insert(self: *Self, item: T) !void {
             const id = fetchBitMaskedIndex(item.id);
             if (self.contains(item)) {
                 return;
             }
+
+            try self.ensureDenseCapacity(self.count + 1);
+
+            const uid: usize = @intCast(id);
+            try self.ensureSparseCapacity(uid);
 
             self.dense[self.count] = item;
             self.sparse[id] = self.count;
@@ -100,6 +103,24 @@ pub fn SparseSet(comptime T: type, comptime opt: ?SparseOptions) type {
 
             self.count -= 1;
         }
+
+        fn ensureDenseCapacity(self: *Self, required_count: usize) !void {
+            if (self.dense.len <= required_count) {
+                self.dense = try self.allocator.realloc(self.dense, self.dense.len * 2);
+            }
+        }
+
+        fn ensureSparseCapacity(self: *Self, required_index: usize) !void {
+            if (self.sparse.len < required_index) {
+                var mul_factor:usize = 2;
+                if (required_index <= self.sparse.len * mul_factor) {
+                    mul_factor = 6;
+                }
+                const previous_max_len = self.sparse.len;
+                self.sparse = try self.allocator.realloc(self.sparse, self.sparse.len * mul_factor);
+                @memset(self.sparse[previous_max_len..], 0);
+            }
+        }
     };
 }
 
@@ -118,12 +139,12 @@ test "basic insert" {
 
     const en1 = em.new();
     try std.testing.expect(!sparse_set.contains(en1));
-    sparse_set.insert(en1);
+    try sparse_set.insert(en1);
     try std.testing.expect(sparse_set.contains(en1));
 
     const en2 = em.new();
     try std.testing.expect(!sparse_set.contains(en2));
-    sparse_set.insert(en2);
+    try sparse_set.insert(en2);
     try std.testing.expect(sparse_set.contains(en2));
     try std.testing.expect(sparse_set.contains(en1));
 }
@@ -143,12 +164,12 @@ test "basic contains" {
 
     const en1 = em.new();
     try std.testing.expect(!sparse_set.contains(en1));
-    sparse_set.insert(en1);
+    try sparse_set.insert(en1);
     try std.testing.expect(sparse_set.contains(en1));
 
     const en2 = em.new();
     try std.testing.expect(!sparse_set.contains(en2));
-    sparse_set.insert(en2);
+    try sparse_set.insert(en2);
     try std.testing.expect(sparse_set.contains(en2));
     try std.testing.expect(sparse_set.contains(en1));
 
@@ -163,11 +184,11 @@ test "basic contains" {
     try std.testing.expect(!sparse_set.contains(en6));
     try std.testing.expect(!sparse_set.contains(en7));
 
-    sparse_set.insert(en3);
-    sparse_set.insert(en4);
-    sparse_set.insert(en5);
-    sparse_set.insert(en6);
-    sparse_set.insert(en7);
+    try sparse_set.insert(en3);
+    try sparse_set.insert(en4);
+    try sparse_set.insert(en5);
+    try sparse_set.insert(en6);
+    try sparse_set.insert(en7);
 
     try std.testing.expect(sparse_set.contains(en3));
     try std.testing.expect(sparse_set.contains(en4));
@@ -191,11 +212,31 @@ test "basic removal" {
 
     const en1 = em.new();
     const en2 = em.new();
-    sparse_set.insert(en1);
-    sparse_set.insert(en2);
+    try sparse_set.insert(en1);
+    try sparse_set.insert(en2);
     try std.testing.expect(sparse_set.contains(en1));
     try std.testing.expect(sparse_set.contains(en2));
     sparse_set.remove(en1);
     try std.testing.expect(!sparse_set.contains(en1));
     try std.testing.expect(sparse_set.contains(en2));
+}
+
+test "pager test" {
+    const entity = @import("../entity.zig");
+
+    const s_opt: SparseOptions = .{ .is_bit_masked = true };
+    const EntitySparseSet = SparseSet(entity.Entity, s_opt);
+
+    const alloc = std.testing.allocator;
+
+    var sparse_set = try EntitySparseSet.init(alloc);
+    defer sparse_set.deinit();
+
+    var em = entity.EntityManager{};
+
+    for (0..5098) |_| {
+        const e = em.new();
+        try sparse_set.insert(e);
+    }
+    std.debug.print("{d}\n", .{sparse_set.count});
 }
