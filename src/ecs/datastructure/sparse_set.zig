@@ -238,5 +238,4 @@ test "pager test" {
         const e = em.new();
         try sparse_set.insert(e);
     }
-    std.debug.print("{d}\n", .{sparse_set.count});
 }

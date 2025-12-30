@@ -1,20 +1,19 @@
 const std = @import("std");
 
-const world = @import("world.zig");
+const World = @import("world.zig");
 const entity = @import("entity.zig");
 const sparse_set = @import("datastructure/sparse_set.zig");
 
-pub const WorldManager = world.WorldManager;
 
 test "ALL ECS" {
-    std.testing.refAllDecls(world);
+    std.testing.refAllDecls(World);
     std.testing.refAllDecls(entity);
     std.testing.refAllDecls(sparse_set);
 }
 
 test "all features availability" {
     const allocator = std.testing.allocator;
-    var first_world = try world.World.init(allocator);
+    var first_world = try World.init(allocator);
     defer first_world.deinit();
 
     var em = entity.EntityManager{};
